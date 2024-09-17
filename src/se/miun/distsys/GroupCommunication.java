@@ -7,6 +7,7 @@ import java.net.MulticastSocket;
 import java.util.Random;
 
 import se.miun.distsys.listeners.ChatMessageListener;
+import se.miun.distsys.listeners.JoinMessageListener;
 import se.miun.distsys.messages.ChatMessage;
 import se.miun.distsys.messages.JoinMessage;
 import se.miun.distsys.messages.Message;
@@ -21,7 +22,7 @@ public class GroupCommunication {
 
 	//Listeners
 	ChatMessageListener chatMessageListener = null;	
-	ChatMessageListener joinMessageListener = null;
+	JoinMessageListener joinMessageListener = null;
 	
 	public GroupCommunication() {
 		try {
@@ -57,6 +58,8 @@ public class GroupCommunication {
 
 					if(receivedMessage instanceof ChatMessage && r.nextInt(100) < chanceToDropPackets){
 						System.out.println("Dropped packet");
+					} else if (receivedMessage instanceof JoinMessage && r.nextInt(100) < chanceToDropPackets){
+						System.out.println("Dropped packet");
 					} else {
 						handleMessage(receivedMessage);
 					}
@@ -74,7 +77,10 @@ public class GroupCommunication {
 					chatMessageListener.onIncomingChatMessage(chatMessage);
 				}
 			} else if (message instanceof JoinMessage) {
-				
+				JoinMessage joinMessage = (JoinMessage) message;
+				if(joinMessageListener != null){
+					joinMessageListener.onIncomingJoinMessage(joinMessage);
+				}
 			} else {				
 				System.out.println("Unknown message type");
 			}
@@ -95,8 +101,8 @@ public class GroupCommunication {
 
 	public void sendJoinMessage(String username) {
 		try {
-			ChatMessage chatMessage = new ChatMessage(username + " has joined the chat");
-			byte[] sendData = messageSerializer.serializeMessage(chatMessage);
+			JoinMessage joinMessage = new JoinMessage(username);
+			byte[] sendData = messageSerializer.serializeMessage(joinMessage);
 			DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, 
 					InetAddress.getByName("255.255.255.255"), datagramSocketPort);
 			datagramSocket.send(sendPacket);
@@ -109,7 +115,7 @@ public class GroupCommunication {
 		this.chatMessageListener = listener;		
 	}
 
-	public void setJoinMessageListener(ChatMessageListener listener) {
+	public void setJoinMessageListener(JoinMessageListener listener) {
 		this.joinMessageListener = listener;		
 	}
 	

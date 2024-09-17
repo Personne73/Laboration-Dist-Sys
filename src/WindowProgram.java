@@ -1,10 +1,13 @@
 import java.awt.EventQueue;
 
 import javax.swing.JFrame;
+import javax.swing.JOptionPane;
 
 import se.miun.distsys.GroupCommunication;
 import se.miun.distsys.listeners.ChatMessageListener;
+import se.miun.distsys.listeners.JoinMessageListener;
 import se.miun.distsys.messages.ChatMessage;
+import se.miun.distsys.messages.JoinMessage;
 
 import javax.swing.JButton;
 import javax.swing.JTextPane;
@@ -17,11 +20,11 @@ import javax.swing.JScrollPane;
 
 //Skeleton code for Distributed systems
 
-public class WindowProgram implements ChatMessageListener, ActionListener {
+public class WindowProgram implements ChatMessageListener, JoinMessageListener, ActionListener {
 
-	JFrame frame;
-	JTextPane txtpnChat = new JTextPane();
-	JTextPane txtpnMessage = new JTextPane();
+	JFrame frame; // The window
+	JTextPane txtpnChat = new JTextPane(); // The chat window
+	JTextPane txtpnMessage = new JTextPane(); // The message window
 	
 	GroupCommunication gc = null;
 
@@ -39,11 +42,28 @@ public class WindowProgram implements ChatMessageListener, ActionListener {
 	}
 
 	public WindowProgram() {
+		String username = JOptionPane.showInputDialog(frame, "Enter your username :", "Username", JOptionPane.PLAIN_MESSAGE);
+
+		// if(username == null || username.isEmpty()) {
+		// 	System.out.println("Username cannot be empty");
+		// 	System.exit(0);
+		// }
+		if (username == null || username.trim().isEmpty()) {
+            JOptionPane.showMessageDialog(frame, "You must provide a username to join the session !!", "Error", JOptionPane.ERROR_MESSAGE);
+            System.exit(0);
+        }
+
 		initializeFrame();
 
 		gc = new GroupCommunication();
 		gc.setChatMessageListener(this);
+		gc.setJoinMessageListener(this);
+
 		System.out.println("Group Communication Started");
+
+		//String username = "User" + (int) (Math.random() * 1000);
+		gc.sendJoinMessage(username);
+
 	}
 
 	private void initializeFrame() {
@@ -84,5 +104,10 @@ public class WindowProgram implements ChatMessageListener, ActionListener {
 	@Override
 	public void onIncomingChatMessage(ChatMessage chatMessage) {	
 		txtpnChat.setText(chatMessage.chat + "\n" + txtpnChat.getText());				
+	}
+
+	@Override
+	public void onIncomingJoinMessage(JoinMessage joinMessage) {
+		txtpnChat.setText(joinMessage.chat + "\n" + txtpnChat.getText());
 	}
 }
