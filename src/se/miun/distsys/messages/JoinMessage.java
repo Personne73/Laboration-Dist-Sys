@@ -13,7 +13,6 @@ public class JoinMessage extends Message {
     public JoinMessage(String username, String userId) {
         this.username = username;
         this.userId = userId;
-        // this.userId = UUID.randomUUID().toString();
         this.chat = username + " (ID: " + userId + ") has joined the chat !";
     }
 

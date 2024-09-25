@@ -8,7 +8,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
 
-import se.miun.distsys.GroupCommunication.ReceiveThread;
 import se.miun.distsys.listeners.ActiveUserListener;
 import se.miun.distsys.listeners.ChatMessageListener;
 import se.miun.distsys.listeners.JoinMessageListener;

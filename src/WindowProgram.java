@@ -18,9 +18,7 @@ import javax.swing.BorderFactory;
 import javax.swing.DefaultListModel;
 import javax.swing.JButton;
 import javax.swing.JTextPane;
-import javax.swing.SwingUtilities;
 
-import java.awt.GridLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.WindowEvent;
@@ -57,10 +55,6 @@ public class WindowProgram implements ChatMessageListener, JoinMessageListener, 
 	public WindowProgram() {
 		String username = JOptionPane.showInputDialog(frame, "Enter your username :", "Username", JOptionPane.PLAIN_MESSAGE);
 
-		// if(username == null || username.isEmpty()) {
-		// 	System.out.println("Username cannot be empty");
-		// 	System.exit(0);
-		// }
 		if (username == null || username.trim().isEmpty()) {
             JOptionPane.showMessageDialog(frame, "You must provide a username to join the session !!", "Error", JOptionPane.ERROR_MESSAGE);
             System.exit(0);
@@ -75,43 +69,11 @@ public class WindowProgram implements ChatMessageListener, JoinMessageListener, 
 
 		System.out.println("Group Communication Started");
 
-		//String username = "User" + (int) (Math.random() * 1000);
 		gc.sendJoinMessage(username);
 
 	}
 
 	private void initializeFrame() {
-		// // Create the main window
-		// frame = new JFrame();
-		// frame.setBounds(100, 100, 450, 300);
-		// frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-		// frame.getContentPane().setLayout(new GridLayout(0, 1, 0, 0));
-		
-		// // Add the chat area
-		// JScrollPane scrollPane = new JScrollPane();
-		// frame.getContentPane().add(scrollPane);
-		// scrollPane.setViewportView(txtpnChat);
-		// txtpnChat.setEditable(false);	
-		// txtpnChat.setText("--== Group Chat ==--");
-		
-		// // Add the message area
-		// txtpnMessage.setText("Message");
-		// frame.getContentPane().add(txtpnMessage);
-		
-		// // Add the send button
-		// JButton btnSendChatMessage = new JButton("Send Chat Message");
-		// btnSendChatMessage.addActionListener(this);
-		// btnSendChatMessage.setActionCommand("send");
-		
-		// frame.getContentPane().add(btnSendChatMessage);
-		
-		// // Add a window listener to handle the window close event
-		// frame.addWindowListener(new java.awt.event.WindowAdapter() {
-	    //     public void windowClosing(WindowEvent winEvt) {
-	    //         gc.shutdown();
-	    //     }
-	    // });
-
 		// Create the window
 		frame = new JFrame();
 		frame.setBounds(100, 100, 600, 500);
@@ -168,18 +130,6 @@ public class WindowProgram implements ChatMessageListener, JoinMessageListener, 
 	    });
 	}
 
-	// public void updateUsersList(Map<String, String> activeUsers) {
-	// 	SwingUtilities.invokeLater(new Runnable() {
-	// 		@Override
-	// 		public void run() {
-	// 			listModel.clear();
-	// 			for (String username : activeUsers.values()) {
-	// 				listModel.addElement(username);
-	// 			}
-	// 		}
-	// 	});
-	// }
-
 	@Override
 	public void actionPerformed(ActionEvent event) {
 		if (event.getActionCommand().equalsIgnoreCase("send")) {
@@ -199,10 +149,6 @@ public class WindowProgram implements ChatMessageListener, JoinMessageListener, 
 
 	@Override
 	public void onActiveUserListChanged(Map<String, String> activeUsers) {
-		// listModel.clear();
-		// for (String username : activeUsers.values()) {
-		// 	listModel.addElement(username);
-		// }
 		listModel.clear();
 		for (Map.Entry<String, String> entry : activeUsers.entrySet()) {
 			String userId = entry.getKey();
