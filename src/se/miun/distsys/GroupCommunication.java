@@ -11,8 +11,10 @@ import java.util.Random;
 import se.miun.distsys.listeners.ActiveUserListener;
 import se.miun.distsys.listeners.ChatMessageListener;
 import se.miun.distsys.listeners.JoinMessageListener;
+import se.miun.distsys.listeners.LeaveMessageListerner;
 import se.miun.distsys.messages.ChatMessage;
 import se.miun.distsys.messages.JoinMessage;
+import se.miun.distsys.messages.LeaveMessage;
 import se.miun.distsys.messages.UserInfoMessage;
 import se.miun.distsys.messages.Message;
 import se.miun.distsys.messages.MessageSerializer;
@@ -27,6 +29,7 @@ public class GroupCommunication {
 	//Listeners
 	ChatMessageListener chatMessageListener = null;	
 	JoinMessageListener joinMessageListener = null;
+	LeaveMessageListerner leaveMessageListerner = null;
 	ActiveUserListener activeUserListener = null;
 
 	// activeUsers list to keep track of users in the chat
@@ -72,11 +75,13 @@ public class GroupCommunication {
 					Message receivedMessage = messageSerializer.deserializeMessage(packetData);
 
 					if(receivedMessage instanceof ChatMessage && r.nextInt(100) < chanceToDropPackets){
-						System.out.println("Dropped packet");
+						System.out.println("Dropped packet during chat message");
 					} else if (receivedMessage instanceof JoinMessage && r.nextInt(100) < chanceToDropPackets){
-						System.out.println("Dropped packet");
+						System.out.println("Dropped packet during join message");
+					} else if (receivedMessage instanceof LeaveMessage && r.nextInt(100) < chanceToDropPackets){
+						System.out.println("Dropped packet during leave message");
 					} else if (receivedMessage instanceof UserInfoMessage && r.nextInt(100) < chanceToDropPackets){
-						System.out.println("Dropped packet");
+						System.out.println("Dropped packet during user info message");
 					} else {
 						handleMessage(receivedMessage);
 					}
@@ -112,6 +117,21 @@ public class GroupCommunication {
 				if(joinMessageListener != null){
 					joinMessageListener.onIncomingJoinMessage(joinMessage);
 				}
+			} else if (message instanceof LeaveMessage) {
+				LeaveMessage leaveMessage = (LeaveMessage) message;
+
+				// remove user from activeUsers list
+				activeUsers.remove(leaveMessage.userId);
+
+				// notify listeners that active users list has changed
+				if (activeUserListener != null) {
+					activeUserListener.onActiveUserListChanged(activeUsers);
+				}
+
+				// send leave message to chat
+				if(leaveMessageListerner != null){
+					leaveMessageListerner.onIncomingLeaveMessage(leaveMessage);
+				}
 			} else if (message instanceof UserInfoMessage) {
 				UserInfoMessage userInfoMessage = (UserInfoMessage) message;
 				System.out.println("Received UserInfoMessage: userId=" + userInfoMessage.userId + ", username=" + userInfoMessage.username);
@@ -143,10 +163,22 @@ public class GroupCommunication {
 		}		
 	}
 
-	public void sendJoinMessage(String username) {
+	public void sendJoinMessage() {
 		try {
-			JoinMessage joinMessage = new JoinMessage(username, ownUserId);
+			JoinMessage joinMessage = new JoinMessage(ownUsername, ownUserId);
 			byte[] sendData = messageSerializer.serializeMessage(joinMessage);
+			DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, 
+					InetAddress.getByName("255.255.255.255"), datagramSocketPort);
+			datagramSocket.send(sendPacket);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}		
+	}
+
+	public void sendLeaveMessage() {
+		try {
+			LeaveMessage leaveMessage = new LeaveMessage(ownUsername, ownUserId);
+			byte[] sendData = messageSerializer.serializeMessage(leaveMessage);
 			DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, 
 					InetAddress.getByName("255.255.255.255"), datagramSocketPort);
 			datagramSocket.send(sendPacket);
@@ -168,13 +200,16 @@ public class GroupCommunication {
 		}
 	}
 
-
 	public void setChatMessageListener(ChatMessageListener listener) {
 		this.chatMessageListener = listener;		
 	}
 
 	public void setJoinMessageListener(JoinMessageListener listener) {
 		this.joinMessageListener = listener;		
+	}
+
+	public void setLeaveMessageListener(LeaveMessageListerner listener) {
+		this.leaveMessageListerner = listener;
 	}
 
 	public void setActiveUserListener(ActiveUserListener listener) {

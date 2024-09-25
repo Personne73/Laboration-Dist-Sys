@@ -18,7 +18,8 @@ public class Program implements ChatMessageListener{
 	}
 		
 	public Program() {
-		gc = new GroupCommunication();
+		String username = "";
+		gc = new GroupCommunication(username);
 		gc.setChatMessageListener(this);
 		System.out.println("Group Communication Started");
 		

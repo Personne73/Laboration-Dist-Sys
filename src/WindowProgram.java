@@ -10,9 +10,11 @@ import javax.swing.JPanel;
 import se.miun.distsys.GroupCommunication;
 import se.miun.distsys.listeners.ChatMessageListener;
 import se.miun.distsys.listeners.JoinMessageListener;
+import se.miun.distsys.listeners.LeaveMessageListerner;
 import se.miun.distsys.listeners.ActiveUserListener;
 import se.miun.distsys.messages.ChatMessage;
 import se.miun.distsys.messages.JoinMessage;
+import se.miun.distsys.messages.LeaveMessage;
 
 import javax.swing.BorderFactory;
 import javax.swing.DefaultListModel;
@@ -28,7 +30,7 @@ import javax.swing.JScrollPane;
 
 //Skeleton code for Distributed systems
 
-public class WindowProgram implements ChatMessageListener, JoinMessageListener, ActiveUserListener, ActionListener {
+public class WindowProgram implements ChatMessageListener, JoinMessageListener, LeaveMessageListerner, ActiveUserListener, ActionListener {
 
 	JFrame frame; // The window
 	JTextPane txtpnChat = new JTextPane(); // The chat window
@@ -65,12 +67,12 @@ public class WindowProgram implements ChatMessageListener, JoinMessageListener, 
 		gc = new GroupCommunication(username);
 		gc.setChatMessageListener(this);
 		gc.setJoinMessageListener(this);
+		gc.setLeaveMessageListener(this);
 		gc.setActiveUserListener(this);
 
 		System.out.println("Group Communication Started");
 
-		gc.sendJoinMessage(username);
-
+		gc.sendJoinMessage();
 	}
 
 	private void initializeFrame() {
@@ -125,6 +127,7 @@ public class WindowProgram implements ChatMessageListener, JoinMessageListener, 
 		// Add a window listener to handle the window close event
 		frame.addWindowListener(new java.awt.event.WindowAdapter() {
 	        public void windowClosing(WindowEvent winEvt) {
+				gc.sendLeaveMessage();
 	            gc.shutdown();
 	        }
 	    });
@@ -145,6 +148,11 @@ public class WindowProgram implements ChatMessageListener, JoinMessageListener, 
 	@Override
 	public void onIncomingJoinMessage(JoinMessage joinMessage) {
 		txtpnChat.setText(joinMessage.chat + "\n" + txtpnChat.getText());
+	}
+
+	@Override
+	public void onIncomingLeaveMessage(LeaveMessage leaveMessage) {
+		txtpnChat.setText(leaveMessage.chat + "\n" + txtpnChat.getText());
 	}
 
 	@Override

@@ -6,8 +6,8 @@ You will be given a basic skeleton for the program which you will need to extend
 - [X] Choose your own port, so your program will not collide with other students programs on the same network.
 - [X] Implement a Join message, that is sent from a client when the client starts.
 - [X] When another client receives the Join message, it shall add the user to its list of active clients.
-- [ ] Implement a Leave message, that is sent from a client when the client leaves
-- [ ] When another client receives the Leave message, it shall remove the user fromt its list of active clients.
+- [X] Implement a Leave message, that is sent from a client when the client leaves
+- [X] When another client receives the Leave message, it shall remove the user from its list of active clients.
 - [X] Remember that the newly joined client should also get a list of all active client from the older clients.
 - [X] Adjust the user interface according to your own taste.
 
