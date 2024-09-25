@@ -54,6 +54,10 @@ public class GroupCommunication {
 		}
 	}
 
+	public String getOwnUserId() {
+		return ownUserId;
+	}
+
 	public void shutdown() {
 		runGroupCommunication = false;
 	}
@@ -153,7 +157,7 @@ public class GroupCommunication {
 	
 	public void sendChatMessage(String chat) {
 		try {
-			ChatMessage chatMessage = new ChatMessage(chat);
+			ChatMessage chatMessage = new ChatMessage(chat, ownUsername, ownUserId);
 			byte[] sendData = messageSerializer.serializeMessage(chatMessage);
 			DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, 
 					InetAddress.getByName("255.255.255.255"), datagramSocketPort);

@@ -142,7 +142,13 @@ public class WindowProgram implements ChatMessageListener, JoinMessageListener, 
 	
 	@Override
 	public void onIncomingChatMessage(ChatMessage chatMessage) {	
-		txtpnChat.setText(chatMessage.chat + "\n" + txtpnChat.getText());				
+		String message = "";
+		if (chatMessage.userId.equals(gc.getOwnUserId())) {
+			message = "You : " + chatMessage.chat + "\n";
+		} else {
+			message = chatMessage.username + " : " + chatMessage.chat + "\n";
+		}
+		txtpnChat.setText(message + txtpnChat.getText());			
 	}
 
 	@Override
