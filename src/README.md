@@ -1,3 +1,7 @@
+MBIAPA KETCHECKMEN
+Joël Trésor
+International Student - Autumn Semester 2024
+
 # Laboration 1
 In this first laboration you are expected to learn how to program UDP broadcast socket programming in Java, as well as understand the basis for this whole laboratory work.
 
