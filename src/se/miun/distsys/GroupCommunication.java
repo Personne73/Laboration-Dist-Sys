@@ -8,10 +8,12 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
 
+import se.miun.distsys.clock.VectorClock;
 import se.miun.distsys.listeners.ActiveUserListener;
 import se.miun.distsys.listeners.ChatMessageListener;
 import se.miun.distsys.listeners.JoinMessageListener;
 import se.miun.distsys.listeners.LeaveMessageListerner;
+import se.miun.distsys.listeners.VectorClockListener;
 import se.miun.distsys.messages.ChatMessage;
 import se.miun.distsys.messages.JoinMessage;
 import se.miun.distsys.messages.LeaveMessage;
@@ -21,7 +23,7 @@ import se.miun.distsys.messages.MessageSerializer;
 
 public class GroupCommunication {
 	
-	private final int datagramSocketPort = 1802; //You need to change this!
+	private final int datagramSocketPort = 2506; //You need to change this!
 	DatagramSocket datagramSocket = null;
 	boolean runGroupCommunication = true;
 	MessageSerializer messageSerializer = new MessageSerializer();
@@ -31,12 +33,14 @@ public class GroupCommunication {
 	JoinMessageListener joinMessageListener = null;
 	LeaveMessageListerner leaveMessageListerner = null;
 	ActiveUserListener activeUserListener = null;
+	VectorClockListener vectorClockListener = null;
 
 	// activeUsers list to keep track of users in the chat
 	// key: userId, value: username
 	private Map<String, String> activeUsers = new HashMap<>();
 	private String ownUserId;
 	private String ownUsername;
+	private VectorClock ownVectorClock;
 	
 	public GroupCommunication(String ownUsername) {
 		try {
@@ -47,7 +51,9 @@ public class GroupCommunication {
 
 			// store own username and userId
 			this.ownUsername = ownUsername;
-			this.ownUserId = java.util.UUID.randomUUID().toString();
+			this.ownUserId = java.util.UUID.randomUUID().toString(); // generate random UUID
+			// create own vector clock
+			this.ownVectorClock = new VectorClock(ownUserId);
 			
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -58,10 +64,13 @@ public class GroupCommunication {
 		return ownUserId;
 	}
 
+	// public VectorClock getOwnVectorClock() {
+	// 	return new VectorClock(ownVectorClock.getVectorClock());
+	// }
+
 	public void shutdown() {
 		runGroupCommunication = false;
 	}
-	
 
 	class ReceiveThread extends Thread{
 		Random r = new Random();
@@ -94,15 +103,54 @@ public class GroupCommunication {
 				}
 			}
 		}
+
+		// public boolean canDeliverChatMessage(ChatMessage chatMessage) {
+		// 	VectorClock messageClock = chatMessage.getVectorClock();
+		// 	String senderId = chatMessage.userId;
+
+		// 	if(!ownVectorClock.isCausallyOrder(messageClock, senderId)){
+		// 		System.out.println("fonction isCausallyOrder");
+		// 		return false;
+		// 	}
+
+		// 	return true;
+		// }
 				
 		// Method to handle incoming messages
 		private void handleMessage (Message message) {
 			
 			if(message instanceof ChatMessage) {
 				ChatMessage chatMessage = (ChatMessage) message;
-				if(chatMessageListener != null){
-					chatMessageListener.onIncomingChatMessage(chatMessage);
+
+				if(chatMessage.userId.equals(ownUserId)){
+					// update own vector clock if the message is causally ordered
+					ownVectorClock.update(chatMessage.getVectorClock());
+
+					// notify listeners that vector clock has changed
+					if(vectorClockListener != null){
+						vectorClockListener.onVectorClockChanged(ownVectorClock);
+					}
+
+					if(chatMessageListener != null){
+						chatMessageListener.onIncomingChatMessage(chatMessage);
+					}
+				} else {
+					if(ownVectorClock.isCausallyOrder(chatMessage.getVectorClock(), chatMessage.userId)){
+						ownVectorClock.update(chatMessage.getVectorClock());
+	
+						// notify listeners that vector clock has changed
+						if(vectorClockListener != null){
+							vectorClockListener.onVectorClockChanged(ownVectorClock);
+						}
+	
+						if(chatMessageListener != null){
+							chatMessageListener.onIncomingChatMessage(chatMessage);
+						}
+					} else {
+						System.out.println("Message not causally ordered, cannot deliver message");
+					}
 				}
+
 			} else if (message instanceof JoinMessage) {
 				JoinMessage joinMessage = (JoinMessage) message;
 				
@@ -155,9 +203,17 @@ public class GroupCommunication {
 		}
 	}	
 	
+	// Method to send chat message :
+	// increment own vector clock
+	// send chat message + username + userId + vector clock of the sender
 	public void sendChatMessage(String chat) {
 		try {
-			ChatMessage chatMessage = new ChatMessage(chat, ownUsername, ownUserId);
+			ownVectorClock.increment(ownUserId);
+			// create a copy of the vector clock because the vector clock is mutable
+			//VectorClock vectorClockCopy = new VectorClock(ownVectorClock.getVectorClock());
+			VectorClock vectorClockCopy = ownVectorClock.copy();
+
+			ChatMessage chatMessage = new ChatMessage(chat, ownUsername, ownUserId, vectorClockCopy);
 			byte[] sendData = messageSerializer.serializeMessage(chatMessage);
 			DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, 
 					InetAddress.getByName("255.255.255.255"), datagramSocketPort);
@@ -204,6 +260,8 @@ public class GroupCommunication {
 		}
 	}
 
+	// Setters for listeners
+
 	public void setChatMessageListener(ChatMessageListener listener) {
 		this.chatMessageListener = listener;		
 	}
@@ -218,6 +276,10 @@ public class GroupCommunication {
 
 	public void setActiveUserListener(ActiveUserListener listener) {
 		this.activeUserListener = listener;
+	}
+
+	public void setVectorClockListener(VectorClockListener listener) {
+		this.vectorClockListener = listener;
 	}
 	
 }

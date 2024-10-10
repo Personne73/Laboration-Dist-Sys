@@ -8,9 +8,11 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 
 import se.miun.distsys.GroupCommunication;
+import se.miun.distsys.clock.VectorClock;
 import se.miun.distsys.listeners.ChatMessageListener;
 import se.miun.distsys.listeners.JoinMessageListener;
 import se.miun.distsys.listeners.LeaveMessageListerner;
+import se.miun.distsys.listeners.VectorClockListener;
 import se.miun.distsys.listeners.ActiveUserListener;
 import se.miun.distsys.messages.ChatMessage;
 import se.miun.distsys.messages.JoinMessage;
@@ -30,11 +32,12 @@ import javax.swing.JScrollPane;
 
 //Skeleton code for Distributed systems
 
-public class WindowProgram implements ChatMessageListener, JoinMessageListener, LeaveMessageListerner, ActiveUserListener, ActionListener {
+public class WindowProgram implements ChatMessageListener, JoinMessageListener, LeaveMessageListerner, ActiveUserListener, ActionListener, VectorClockListener {
 
 	JFrame frame; // The window
 	JTextPane txtpnChat = new JTextPane(); // The chat window
 	JTextPane txtpnMessage = new JTextPane(); // The message window
+	JTextPane txtpnVectorClock = new JTextPane(); // The vector clock window
 
 	JList<String> userList; // The list of users
 	DefaultListModel<String> listModel; // The list model
@@ -69,6 +72,7 @@ public class WindowProgram implements ChatMessageListener, JoinMessageListener, 
 		gc.setJoinMessageListener(this);
 		gc.setLeaveMessageListener(this);
 		gc.setActiveUserListener(this);
+		gc.setVectorClockListener(this);
 
 		System.out.println("Group Communication Started");
 
@@ -112,6 +116,13 @@ public class WindowProgram implements ChatMessageListener, JoinMessageListener, 
 		// Add the message panel to the main panel
 		mainPanel.add(messagePanel, BorderLayout.SOUTH);
 
+		// Vector clock display
+		txtpnVectorClock.setEditable(false);
+		txtpnVectorClock.setText("-= Vector Clock =-\n");
+		JScrollPane vectorClockScrollPane = new JScrollPane(txtpnVectorClock);
+		vectorClockScrollPane.setPreferredSize(new Dimension(100, 0));
+		//mainPanel.add(vectorClockScrollPane, BorderLayout.NORTH);
+		frame.getContentPane().add(vectorClockScrollPane, BorderLayout.WEST);
 		// Add the main panel to the frame
 		frame.getContentPane().add(mainPanel, BorderLayout.CENTER);
 
@@ -170,5 +181,16 @@ public class WindowProgram implements ChatMessageListener, JoinMessageListener, 
 			String displayName = username + " (ID: " + userId + ")";
 			listModel.addElement(displayName);
 		}
+	}
+
+	@Override
+	public void onVectorClockChanged(VectorClock vectorClock) {
+		String clockUI = "-= Vector Clock =-\n";
+		for (Map.Entry<String, Integer> entry : vectorClock.getMapVectorClock().entrySet()) {
+			String userId = entry.getKey();
+			int clock = entry.getValue();
+			clockUI += userId + " : " + clock + "\n";
+		}
+		txtpnVectorClock.setText(clockUI);
 	}
 }

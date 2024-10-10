@@ -11,6 +11,6 @@ public class LeaveMessage extends Message {
     public LeaveMessage(String username, String userId) {
         this.username = username;
         this.userId = userId;
-        this.chat = username + " (ID: " + userId + ") has leaved the chat !";
+        this.chat = username + " (ID: " + userId + ") has left the chat !";
     }
 }
