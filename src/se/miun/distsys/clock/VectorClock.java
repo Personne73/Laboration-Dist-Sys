@@ -4,8 +4,6 @@ import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
 
-import se.miun.distsys.messages.Message;
-
 public class VectorClock implements Serializable {
 
     // vector clock = map of userIds to their respective clock values

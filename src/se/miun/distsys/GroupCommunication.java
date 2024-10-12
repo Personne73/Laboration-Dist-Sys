@@ -4,6 +4,8 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.MulticastSocket;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
@@ -20,6 +22,8 @@ import se.miun.distsys.messages.LeaveMessage;
 import se.miun.distsys.messages.UserInfoMessage;
 import se.miun.distsys.messages.Message;
 import se.miun.distsys.messages.MessageSerializer;
+import se.miun.distsys.messages.ResendRequestMessage;
+import se.miun.distsys.messages.ResendResponseMessage;
 
 public class GroupCommunication {
 	
@@ -41,6 +45,12 @@ public class GroupCommunication {
 	private String ownUserId;
 	private String ownUsername;
 	private VectorClock ownVectorClock;
+
+	// Keep track of the messages received and sent
+	// key: message id, value: chat message
+	private Map<String, ChatMessage> chatMessagesHistory = new HashMap<>();
+	// list of messages that are not causally ordered
+	private List<ChatMessage> pendingMessages = new ArrayList<>();
 	
 	public GroupCommunication(String ownUsername) {
 		try {
@@ -74,7 +84,7 @@ public class GroupCommunication {
 
 	class ReceiveThread extends Thread{
 		Random r = new Random();
-		int chanceToDropPackets = 0;
+		int chanceToDropPackets = 50;
 
 		@Override
 		public void run() {
@@ -87,14 +97,20 @@ public class GroupCommunication {
 					byte[] packetData = datagramPacket.getData();					
 					Message receivedMessage = messageSerializer.deserializeMessage(packetData);
 
-					if(receivedMessage instanceof ChatMessage && r.nextInt(100) < chanceToDropPackets){
-						System.out.println("Dropped packet during chat message");
-					} else if (receivedMessage instanceof JoinMessage && r.nextInt(100) < chanceToDropPackets){
-						System.out.println("Dropped packet during join message");
-					} else if (receivedMessage instanceof LeaveMessage && r.nextInt(100) < chanceToDropPackets){
-						System.out.println("Dropped packet during leave message");
-					} else if (receivedMessage instanceof UserInfoMessage && r.nextInt(100) < chanceToDropPackets){
-						System.out.println("Dropped packet during user info message");
+					if(receivedMessage instanceof ChatMessage){
+						// if the sender is not the own user, drop the packet with a certain probability
+						ChatMessage chatMessage = (ChatMessage) receivedMessage;
+						if(!chatMessage.userId.equals(ownUserId) && r.nextInt(100) < chanceToDropPackets){
+							System.out.println("Dropped packet during chat message");
+						} else {
+							handleMessage(receivedMessage);
+						}
+					// } else if (receivedMessage instanceof JoinMessage && r.nextInt(100) < chanceToDropPackets){
+					// 	System.out.println("Dropped packet during join message");
+					// } else if (receivedMessage instanceof LeaveMessage && r.nextInt(100) < chanceToDropPackets){
+					// 	System.out.println("Dropped packet during leave message");
+					// } else if (receivedMessage instanceof UserInfoMessage && r.nextInt(100) < chanceToDropPackets){
+					// 	System.out.println("Dropped packet during user info message");
 					} else {
 						handleMessage(receivedMessage);
 					}
@@ -103,24 +119,20 @@ public class GroupCommunication {
 				}
 			}
 		}
-
-		// public boolean canDeliverChatMessage(ChatMessage chatMessage) {
-		// 	VectorClock messageClock = chatMessage.getVectorClock();
-		// 	String senderId = chatMessage.userId;
-
-		// 	if(!ownVectorClock.isCausallyOrder(messageClock, senderId)){
-		// 		System.out.println("fonction isCausallyOrder");
-		// 		return false;
-		// 	}
-
-		// 	return true;
-		// }
 				
 		// Method to handle incoming messages
 		private void handleMessage (Message message) {
 			
 			if(message instanceof ChatMessage) {
 				ChatMessage chatMessage = (ChatMessage) message;
+
+				// check if the message is already in the chat history
+				if(chatMessagesHistory.containsKey(getChatMessageId(chatMessage))){
+					System.out.println("Message already in chat history, ignoring message");
+					return;
+				}
+
+				chatMessagesHistory.put(getChatMessageId(chatMessage), chatMessage);
 
 				if(chatMessage.userId.equals(ownUserId)){
 					// update own vector clock if the message is causally ordered
@@ -135,10 +147,12 @@ public class GroupCommunication {
 						chatMessageListener.onIncomingChatMessage(chatMessage);
 					}
 				} else {
+
 					if(ownVectorClock.isCausallyOrder(chatMessage.getVectorClock(), chatMessage.userId)){
+						// update own vector clock if the message is causally ordered
 						ownVectorClock.update(chatMessage.getVectorClock());
 	
-						// notify listeners that vector clock has changed
+						// notify listeners that something has changed
 						if(vectorClockListener != null){
 							vectorClockListener.onVectorClockChanged(ownVectorClock);
 						}
@@ -146,8 +160,42 @@ public class GroupCommunication {
 						if(chatMessageListener != null){
 							chatMessageListener.onIncomingChatMessage(chatMessage);
 						}
+
+						// check if there are pending messages that can be delivered
+						checkPendingMessages();
 					} else {
 						System.out.println("Message not causally ordered, cannot deliver message");
+						pendingMessages.add(chatMessage);
+
+						requestMissingMessages(chatMessage);
+					}
+				}
+
+			} else if (message instanceof ResendResponseMessage) { 
+				ResendResponseMessage resendResponseMessage = (ResendResponseMessage) message;
+				ChatMessage chatMessage = resendResponseMessage.chatMessage;
+
+				if(!chatMessagesHistory.containsKey(getChatMessageId(chatMessage))) {
+					chatMessagesHistory.put(getChatMessageId(chatMessage), chatMessage);
+
+					if(ownVectorClock.isCausallyOrder(chatMessage.getVectorClock(), chatMessage.userId)){
+						// update own vector clock if the message is causally ordered
+						ownVectorClock.update(chatMessage.getVectorClock());
+	
+						// notify listeners that something has changed
+						if(vectorClockListener != null){
+							vectorClockListener.onVectorClockChanged(ownVectorClock);
+						}
+	
+						if(chatMessageListener != null){
+							chatMessageListener.onIncomingChatMessage(chatMessage);
+						}
+
+						// check if there are pending messages that can be delivered
+						checkPendingMessages();
+					} else {
+						System.out.println("Message not causally ordered, cannot deliver message yet (ResendResponseMessage)");
+						pendingMessages.add(chatMessage);
 					}
 				}
 
@@ -197,12 +245,110 @@ public class GroupCommunication {
 				if (activeUserListener != null) {
 					activeUserListener.onActiveUserListChanged(activeUsers);
 				}
+			} else if (message instanceof ResendRequestMessage) {
+				ResendRequestMessage resendRequestMessage = (ResendRequestMessage) message;
+				System.out.println("Received ResendRequestMessage: userId =" + resendRequestMessage.requestedUserId + ", messageNumber =" + resendRequestMessage.requestedMessageNumber);
+
+				String requestMessageId = resendRequestMessage.requestedUserId + "/" + resendRequestMessage.requestedMessageNumber;
+
+				// check if the requested message is in the chat history
+				if(chatMessagesHistory.containsKey(requestMessageId)){
+					ChatMessage missingMessage = chatMessagesHistory.get(requestMessageId);
+					System.out.println("Requested message found in chat history, sending message to requester : " + missingMessage.chat);
+					// send the requested message to the requester
+					sendResendResponseMessage(missingMessage);
+				}
+				
 			} else {				
 				System.out.println("Unknown message type");
 			}
 		}
 	}	
+
+	// Request missing messages before delivering the message
+	private void requestMissingMessages(ChatMessage chatMessage) {
+		VectorClock messageClock = chatMessage.getVectorClock();
+		String senderId = chatMessage.userId;
+		Map<String, Integer> messageVectorClock = messageClock.getMapVectorClock();
+
+		for(String userId : messageVectorClock.keySet()){
+			int messageValue = messageVectorClock.get(userId);
+			int ownValue = ownVectorClock.getMapVectorClock().getOrDefault(userId, 0);
+
+			if(userId.equals(senderId)){
+				// miss messages from the sender
+				if(messageValue > ownValue){
+					System.out.println("Requesting missing messages from the sender user : " + userId);
+					for(int i = ownValue + 1; i < messageValue; i++){
+						sendResendMessage(userId, i);
+					}
+				}
+			} else {
+				// miss message from other users
+				if(messageValue > ownValue){
+					System.out.println("Requesting missing messages from other user : " + userId);
+					for(int i = ownValue + 1; i <= messageValue; i++){
+						sendResendMessage(userId, i);
+					}
+				}
+			}
+		}
+
+	}
+
+	public void sendResendMessage(String userId, int messageNumber) {
+		try {
+			ResendRequestMessage resendRequestMessage = new ResendRequestMessage(ownUserId, userId, messageNumber);
+			byte[] sendData = messageSerializer.serializeMessage(resendRequestMessage);
+			DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, 
+					InetAddress.getByName("255.255.255.255"), datagramSocketPort);
+			datagramSocket.send(sendPacket);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}		
+	}
+
+	public void sendResendResponseMessage(ChatMessage message) {
+		try {
+			System.out.println("Sending ResendResponseMessage: userId=" + message.userId + ", messageNumber=" + getChatMessageId(message));
+			ResendResponseMessage resendResponse = new ResendResponseMessage(message);
+			byte[] sendData = messageSerializer.serializeMessage(resendResponse);
+			DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, 
+					InetAddress.getByName("255.255.255.255"), datagramSocketPort);
+			datagramSocket.send(sendPacket);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}		
+	}
+
+	private void checkPendingMessages() {
+		System.out.println("Checking pending messages");
+		List<ChatMessage> messagesToRemove = new ArrayList<>();
+
+		for(ChatMessage pendingMessage : pendingMessages){
+			if(ownVectorClock.isCausallyOrder(pendingMessage.getVectorClock(), pendingMessage.userId)){
+
+				ownVectorClock.update(pendingMessage.getVectorClock());
+
+				if(vectorClockListener != null){
+					vectorClockListener.onVectorClockChanged(ownVectorClock);
+				}
+
+				if(chatMessageListener != null){
+					chatMessageListener.onIncomingChatMessage(pendingMessage);
+				}
+
+				messagesToRemove.add(pendingMessage);
+			}
+		}
+
+		pendingMessages.removeAll(messagesToRemove);
+	}
 	
+	private String getChatMessageId(ChatMessage chatMessage) {
+		return chatMessage.userId + "/" + chatMessage.getVectorClock().getMapVectorClock().get(chatMessage.userId);
+	}
+
 	// Method to send chat message :
 	// increment own vector clock
 	// send chat message + username + userId + vector clock of the sender
@@ -214,6 +360,10 @@ public class GroupCommunication {
 			VectorClock vectorClockCopy = ownVectorClock.copy();
 
 			ChatMessage chatMessage = new ChatMessage(chat, ownUsername, ownUserId, vectorClockCopy);
+
+			// add chat message to the chat history
+			// chatMessagesHistory.put(getChatMessageId(chatMessage), chatMessage);
+
 			byte[] sendData = messageSerializer.serializeMessage(chatMessage);
 			DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, 
 					InetAddress.getByName("255.255.255.255"), datagramSocketPort);
