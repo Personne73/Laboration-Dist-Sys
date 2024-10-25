@@ -74,10 +74,6 @@ public class GroupCommunication {
 		return ownUserId;
 	}
 
-	// public VectorClock getOwnVectorClock() {
-	// 	return new VectorClock(ownVectorClock.getVectorClock());
-	// }
-
 	public void shutdown() {
 		runGroupCommunication = false;
 	}
@@ -105,12 +101,6 @@ public class GroupCommunication {
 						} else {
 							handleMessage(receivedMessage);
 						}
-					// } else if (receivedMessage instanceof JoinMessage && r.nextInt(100) < chanceToDropPackets){
-					// 	System.out.println("Dropped packet during join message");
-					// } else if (receivedMessage instanceof LeaveMessage && r.nextInt(100) < chanceToDropPackets){
-					// 	System.out.println("Dropped packet during leave message");
-					// } else if (receivedMessage instanceof UserInfoMessage && r.nextInt(100) < chanceToDropPackets){
-					// 	System.out.println("Dropped packet during user info message");
 					} else {
 						handleMessage(receivedMessage);
 					}
@@ -356,13 +346,9 @@ public class GroupCommunication {
 		try {
 			ownVectorClock.increment(ownUserId);
 			// create a copy of the vector clock because the vector clock is mutable
-			//VectorClock vectorClockCopy = new VectorClock(ownVectorClock.getVectorClock());
 			VectorClock vectorClockCopy = ownVectorClock.copy();
 
 			ChatMessage chatMessage = new ChatMessage(chat, ownUsername, ownUserId, vectorClockCopy);
-
-			// add chat message to the chat history
-			// chatMessagesHistory.put(getChatMessageId(chatMessage), chatMessage);
 
 			byte[] sendData = messageSerializer.serializeMessage(chatMessage);
 			DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, 

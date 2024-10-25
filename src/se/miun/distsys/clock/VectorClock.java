@@ -44,28 +44,9 @@ public class VectorClock implements Serializable {
     public boolean isCausallyOrder(VectorClock messageClock, String senderId) {
         Map<String, Integer> messageVectorClock = messageClock.getMapVectorClock();
 
-        // for(Map.Entry<String, Integer> entry : vectorClock.entrySet()) {
-        //     String userId = entry.getKey();
-        //     int value = entry.getValue(); // value of the receiver
-        //     // clock of the sender message
-        //     int messageValue = messageVectorClock.getOrDefault(userId, 0);
-
-        //     if(userId.equals(senderId)) {
-        //         // If the sender's clock is not one more than the receiver's clock
-        //         // or the sender's clock is > receiver's clock
-        //         // then the message is not causally ordered
-        //         if(messageValue != value) {
-        //             return false;
-        //         }
-        //     } else {
-        //         if(messageValue > value) {
-        //             return false;
-        //         }
-        //     }
-        // }
         for(Map.Entry<String, Integer> entry : messageVectorClock.entrySet()) {
             String userId = entry.getKey();
-            int messageValue = entry.getValue(); // value of the sender
+             int messageValue = entry.getValue(); // value of the sender
             // clock of the receiver
             int value = vectorClock.getOrDefault(userId, 0);
 
